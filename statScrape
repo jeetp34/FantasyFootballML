@@ -12,6 +12,13 @@ folder_path = os.getcwd()
 
 all_files = os.listdir(folder_path)
 
+testdf = pd.read_csv("2024Combine.csv")
+print(testdf.head())
+testqb = testdf[testdf['Pos'] == 'QB'].reset_index(drop=True)
+test = testqb.iloc[:, 7:12]
+test.drop(columns=['Bench'], inplace=True)
+test.fillna(test.mean(), inplace=True)
+
 # Filter out non-CSV files
 csv_files = [f for f in all_files if f.endswith('.csv') and f != "combined_file.csv" and f != "2024Combine.csv"]
 
@@ -43,12 +50,13 @@ combdata.to_csv(os.path.join(folder_path, 'combined_file.csv'), index=False)
 #df = pd.DataFrame(combdata)
 
 dfqb = combdata[combdata['Pos'] == 'QB'].reset_index(drop=True)
+dfqb.insert(13,"Success",0)
 
-print(dfqb.head())
+
 
 proQB = ["Patrick Mahomes", "Deshaun Watson", "Baker Mayfield", "Josh Allen", "Lamar Jackson", "Kyler Murray", "Joe Burrow", "Tua Tagovailoa", "Justin Herbert", "Jordan Love", "Jalen Hurts", "Trevor Lawrence","Brock Purdy", "C.J. Stroud", "Anthony Richardson"]
 proWR = []
-row_list= []
+#row_list= []
 
 dfProQB = pd.DataFrame(columns=dfqb.columns)
 
@@ -56,8 +64,47 @@ for QB in proQB:
 # Iterate through each row of the original DataFrame
     row_index = dfqb[dfqb["Player"] == QB].index[0]
 
-    row_list.append(row_index)
+    dfqb.iloc[row_index, 13] = 1
 
-dfProQB = dfqb.iloc[row_list]
+dfqb.drop(columns=['Bench'], inplace=True)
+#dfProQB = dfqb.iloc[row_list]
+#dfProQB.insert(14,"Success")
+X = dfqb.iloc[:, 7:11]  # Extract columns 7 through 12 as features
+y = dfqb.iloc[:, 12]    # Extract column 13 as the target variable
 
-print(dfProQB)
+X.fillna(X.mean(), inplace=True) #Handle NaN values
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Standardize the features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Choose a classification model (e.g., logistic regression)
+model = LogisticRegression()
+
+# Train the model
+model.fit(X_train_scaled, y_train)
+
+# Evaluate the model
+y_pred = model.predict(X_test_scaled)
+print(classification_report(y_test, y_pred))
+
+# Predict success labels for new data
+# Assuming new_data is a DataFrame with the same columns as X (columns 2 through 5)
+new_data_scaled = scaler.transform(test)
+prediction_labels = model.predict(new_data_scaled)
+
+# Assuming new_data is your original DataFrame for new data
+# Add the predicted labels to the DataFrame
+test['Predicted_Success'] = prediction_labels
+
+print(prediction_labels)
+
+# Filter the DataFrame to show only candidates predicted to have "success"
+predicted_success_candidates = test[test['Predicted_Success'] == 1]
+
+# Display the predicted successful candidates
+print(predicted_success_candidates)
