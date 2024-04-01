@@ -13,11 +13,17 @@ folder_path = os.getcwd()
 all_files = os.listdir(folder_path)
 
 testdf = pd.read_csv("2024Combine.csv")
-print(testdf.head())
 testqb = testdf[testdf['Pos'] == 'QB'].reset_index(drop=True)
-test = testqb.iloc[:, 7:12]
-test.drop(columns=['Bench'], inplace=True)
-test.fillna(test.mean(), inplace=True)
+testnameqb = testqb
+testqb = testqb.iloc[:, 7:12]
+testqb.drop(columns=['Bench'], inplace=True)
+testqb.fillna(testqb.mean(), inplace=True)
+
+testwr = testdf[testdf['Pos'] == 'WR'].reset_index(drop=True)
+testnamewr = testwr
+testwr = testwr.iloc[:, 6:12]
+#test.drop(columns=['Bench'], inplace=True)
+testwr.fillna(testwr.mean(), inplace=True)
 
 # Filter out non-CSV files
 csv_files = [f for f in all_files if f.endswith('.csv') and f != "combined_file.csv" and f != "2024Combine.csv"]
@@ -52,15 +58,20 @@ combdata.to_csv(os.path.join(folder_path, 'combined_file.csv'), index=False)
 dfqb = combdata[combdata['Pos'] == 'QB'].reset_index(drop=True)
 dfqb.insert(13,"Success",0)
 
+print(dfqb)
+
+dfwr = combdata[combdata['Pos'] == 'WR'].reset_index(drop=True)
+dfwr.insert(13,"Success",0)
+
+print(dfwr)
 
 
 proQB = ["Patrick Mahomes", "Deshaun Watson", "Baker Mayfield", "Josh Allen", "Lamar Jackson", "Kyler Murray", "Joe Burrow", "Tua Tagovailoa", "Justin Herbert", "Jordan Love", "Jalen Hurts", "Trevor Lawrence","Brock Purdy", "C.J. Stroud", "Anthony Richardson"]
-proWR = []
+proWR = ["Noah Brown", "Chris Godwin", "Cooper Kupp", "JuJu Smith-Schuster", "Curtis Samuel", "Mike Williams", "Christian Kirk", "Courtland Sutton", "Calvin Ridley", "D.J. Moore", "Terry McLaurin", "D.K. Metcalf", "A.J. Brown", "Deebo Samuel", "Marquise Brown", "Michael Pittman", "Tee Higgins", "Brandon Aiyuk", "Justin Jefferson", "CeeDee Lamb", "Jerry Jeudy", "Amon-Ra St. Brown", "Nico Collins", "Ja'Marr Chase", "Romeo Doubs", "Christian Watson", "Chris Olave", "Garrett Wilson", "Drake London", "Puka Nacua", "Dontayvion Wicks", "Rashee Rice", "Jordan Addison", "Zay Flowers"]
 #row_list= []
 
-dfProQB = pd.DataFrame(columns=dfqb.columns)
 
-for QB in proQB:
+"""for QB in proQB:
 # Iterate through each row of the original DataFrame
     row_index = dfqb[dfqb["Player"] == QB].index[0]
 
@@ -71,6 +82,23 @@ dfqb.drop(columns=['Bench'], inplace=True)
 #dfProQB.insert(14,"Success")
 X = dfqb.iloc[:, 7:11]  # Extract columns 7 through 12 as features
 y = dfqb.iloc[:, 12]    # Extract column 13 as the target variable
+"""
+print(dfwr.head())
+
+for WR in proWR:
+# Iterate through each row of the original DataFrame
+    row_index = dfwr[dfwr["Player"] == WR].index[0]
+
+    dfwr.iloc[row_index, 13] = 1
+
+#dfwr.drop(columns=['Bench'], inplace=True)
+#dfProQB = dfqb.iloc[row_list]
+#dfProQB.insert(14,"Success")
+
+X = dfwr.iloc[:, 6:12]  # Extract columns 7 through 12 as features
+print(dfwr.iloc[:, 6:12])
+y = dfwr.iloc[:, 13]    # Extract column 13 as the target variable
+print(dfwr.iloc[:,13])
 
 X.fillna(X.mean(), inplace=True) #Handle NaN values
 
@@ -89,22 +117,24 @@ model = LogisticRegression()
 model.fit(X_train_scaled, y_train)
 
 # Evaluate the model
-y_pred = model.predict(X_test_scaled)
-print(classification_report(y_test, y_pred))
+y_pred = model.predict_proba(X_test_scaled)
+y_test_binary = (y_test > 0).astype(int)
+print(classification_report(y_test_binary, np.argmax(y_pred, axis=1)))
 
 # Predict success labels for new data
 # Assuming new_data is a DataFrame with the same columns as X (columns 2 through 5)
-new_data_scaled = scaler.transform(test)
-prediction_labels = model.predict(new_data_scaled)
+new_data_scaled = scaler.transform(testwr)
+probability_scores = model.predict_proba(new_data_scaled)
 
-# Assuming new_data is your original DataFrame for new data
-# Add the predicted labels to the DataFrame
-test['Predicted_Success'] = prediction_labels
+probability_success = probability_scores[:, 1]
 
-print(prediction_labels)
+# Add the probability scores to the DataFrame
+testwr['Probability_Success'] = probability_success
 
 # Filter the DataFrame to show only candidates predicted to have "success"
-predicted_success_candidates = test[test['Predicted_Success'] == 1]
+predicted_success_candidates = testwr[testwr['Probability_Success'] > 0.5]  # You can adjust the threshold as needed
 
 # Display the predicted successful candidates
-print(predicted_success_candidates)
+
+testwr = testwr.join(testnamewr["Player"])
+print(testwr)
